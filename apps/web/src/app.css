@@ -1,0 +1,79 @@
+@import "tailwindcss";
+
+@theme {
+  --font-sans: -apple-system, BlinkMacSystemFont, "SF Pro Text", "SF Pro Icons", "Helvetica Neue", Helvetica, Arial, sans-serif;
+
+  /* iOS Colors */
+  --color-ios-blue: #007AFF;
+  --color-ios-green: #34C759;
+  --color-ios-red: #FF3B30;
+  --color-ios-orange: #FF9500;
+  --color-ios-yellow: #FFCC00;
+
+  --color-ios-gray-50: #F9FAFB;
+  --color-ios-gray-100: #F2F2F7;
+  --color-ios-gray-200: #E5E5EA;
+  --color-ios-gray-300: #D1D1D6;
+  --color-ios-gray-400: #C7C7CC;
+  --color-ios-gray-500: #AEAEB2;
+  --color-ios-gray-600: #8E8E93;
+  --color-ios-gray-700: #636366;
+  --color-ios-gray-800: #48484A;
+  --color-ios-gray-900: #3A3A3C;
+
+  /* iOS Shadows */
+  --shadow-ios: 0 1px 3px rgba(0, 0, 0, 0.08), 0 1px 2px rgba(0, 0, 0, 0.04);
+  --shadow-ios-md: 0 4px 6px rgba(0, 0, 0, 0.07), 0 2px 4px rgba(0, 0, 0, 0.05);
+  --shadow-ios-lg: 0 10px 15px rgba(0, 0, 0, 0.1), 0 4px 6px rgba(0, 0, 0, 0.05);
+
+  /* iOS Border Radius */
+  --radius-ios: 12px;
+  --radius-ios-lg: 16px;
+  --radius-ios-xl: 20px;
+}
+
+@layer base {
+  html {
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+  }
+
+  body {
+    @apply bg-ios-gray-100 text-gray-900 font-sans;
+  }
+}
+
+@layer utilities {
+  .rounded-ios {
+    border-radius: var(--radius-ios);
+  }
+
+  .rounded-ios-lg {
+    border-radius: var(--radius-ios-lg);
+  }
+
+  .rounded-ios-xl {
+    border-radius: var(--radius-ios-xl);
+  }
+
+  .shadow-ios {
+    box-shadow: var(--shadow-ios);
+  }
+
+  .shadow-ios-md {
+    box-shadow: var(--shadow-ios-md);
+  }
+
+  .shadow-ios-lg {
+    box-shadow: var(--shadow-ios-lg);
+  }
+
+  .scrollbar-hide {
+    -ms-overflow-style: none;
+    scrollbar-width: none;
+  }
+
+  .scrollbar-hide::-webkit-scrollbar {
+    display: none;
+  }
+}
