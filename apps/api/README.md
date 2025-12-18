@@ -1,87 +1,36 @@
 # THS Backend API
 
-Backend para THS Admin usando Hono + Drizzle + Turso.
+API REST con Hono + Drizzle ORM + Turso, desplegada en Cloudflare Workers.
 
-## Setup
+## Desarrollo
 
 ```bash
-# Instalar dependencias
 npm install
-
-# Configurar variables de entorno
-cp .dev.vars.example .dev.vars
-# Editar .dev.vars con tu TURSO_AUTH_TOKEN
-
-# Desarrollo local
 npm run dev
 ```
 
-## Deploy a Cloudflare Workers
+## Despliegue
 
 ```bash
-# Configurar secret de Turso
+# 1. Primero subir cambios al repositorio
+git add . && git commit -m "feat: descripción" && git push
+
+# 2. Configurar secret de Turso (solo primera vez)
 wrangler secret put TURSO_AUTH_TOKEN
 
-# Desplegar
-npm run deploy
+# 3. Desplegar a Cloudflare Workers
+wrangler deploy
 ```
 
-## Endpoints
+## Endpoints principales
 
-### Autenticación
-- `POST /login` - Login (email, password)
+| Método | Ruta | Descripción |
+|--------|------|-------------|
+| POST | `/login` | Autenticación |
+| POST | `/products/search-advanced` | Buscar productos (query, name, barcode) |
+| GET | `/v2/brands` | Listar marcas |
+| GET | `/v2/categories` | Listar categorías (árbol o flat) |
+| GET | `/v2/products/:id` | Producto con marca y categorías |
+| PUT | `/v2/products/:id` | Actualizar producto |
 
-### Productos V1
-- `GET /products` - Listar todos
-- `GET /products/search?barcode=...` - Buscar por código
-- `GET /products/search?name=...` - Buscar por nombre
-- `GET /products/check-barcode/:barcode` - Validar código único
-- `POST /products/search-advanced` - Búsqueda avanzada
-- `POST /productsTNT` - Crear producto (auth)
-- `PUT /editProductTNT/:id` - Editar producto (auth)
-- `PUT /products/:id` - Actualizar enMercadolibre (auth)
-
-### Marcas V2
-- `GET /v2/brands` - Listar (con ?includeInactive=true)
-- `GET /v2/brands/:id` - Obtener por ID
-- `POST /v2/brands` - Crear (auth)
-- `PUT /v2/brands/:id` - Actualizar (auth)
-- `DELETE /v2/brands/:id` - Desactivar (auth)
-- `POST /v2/brands/:id/image` - Subir imagen (auth)
-- `DELETE /v2/brands/:id/image` - Eliminar imagen (auth)
-
-### Categorías V2
-- `GET /v2/categories` - Listar árbol (con ?flat=true, ?includeInactive=true)
-- `GET /v2/categories/:id` - Obtener por ID
-- `POST /v2/categories` - Crear (auth)
-- `PUT /v2/categories/:id` - Actualizar (auth)
-- `DELETE /v2/categories/:id` - Desactivar (auth)
-- `POST /v2/categories/:id/image` - Subir imagen (auth)
-- `DELETE /v2/categories/:id/image` - Eliminar imagen (auth)
-
-### Productos V2
-- `GET /v2/products/:id` - Obtener con marca y categorías
-- `PUT /v2/products/:id` - Actualizar (auth)
-- `GET /v2/products/by-category/:categoryId` - Por categoría
-- `GET /v2/products/by-brand/:brandId` - Por marca
-- `POST /v2/products/:id/categories` - Agregar categorías (auth)
-- `DELETE /v2/products/:id/categories/:categoryId` - Quitar categoría (auth)
-
-## Estructura
-
-```
-back-hono/
-├── src/
-│   ├── index.ts          # App principal
-│   ├── db/
-│   │   ├── index.ts      # Conexión Drizzle
-│   │   └── schema.ts     # Schema de tablas
-│   ├── middleware/
-│   │   └── auth.ts       # JWT middleware
-│   └── utils/
-│       └── slug.ts       # Generador de slugs
-├── package.json
-├── wrangler.toml
-├── tsconfig.json
-└── drizzle.config.ts
-```
+> Los endpoints con (auth) requieren token JWT en header `Authorization: Bearer <token>`
