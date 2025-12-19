@@ -91,6 +91,20 @@ export async function searchProducts(params: {
   });
 }
 
+export async function uploadProductImage(id: number, file: File): Promise<ApiResponse<{ image: string }>> {
+  const token = getToken();
+  const formData = new FormData();
+  formData.append('image', file);
+
+  const response = await fetch(`${API_URL}/v2/products/${id}/image`, {
+    method: 'POST',
+    headers: token ? { Authorization: `Bearer ${token}` } : {},
+    body: formData
+  });
+
+  return response.json();
+}
+
 // Brands
 export async function getBrands(includeInactive = false): Promise<ApiResponse<Brand[]>> {
   const query = includeInactive ? '?includeInactive=true' : '';

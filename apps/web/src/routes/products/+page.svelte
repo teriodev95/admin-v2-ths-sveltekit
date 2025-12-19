@@ -6,6 +6,7 @@
     searchProducts,
     updateProduct,
     createProduct,
+    uploadProductImage,
     getBrands,
     getCategories
   } from '$lib/services/api';
@@ -27,7 +28,9 @@
     ChevronRight,
     Tag,
     FolderTree,
-    Plus
+    Plus,
+    Upload,
+    X
   } from 'lucide-svelte';
 
   let products = $state<Product[]>([]);
@@ -57,6 +60,8 @@
   let formCategoryIds = $state<number[]>([]);
   let formEnMercadolibre = $state(0);
   let formError = $state('');
+  let formImageFile = $state<File | null>(null);
+  let formImagePreview = $state<string | null>(null);
 
   onMount(async () => {
     await Promise.all([loadProducts(), loadFilters()]);
@@ -132,6 +137,8 @@
     formCategoryIds = [];
     formEnMercadolibre = 0;
     formError = '';
+    formImageFile = null;
+    formImagePreview = null;
     showModal = true;
   }
 
@@ -147,6 +154,8 @@
     formCategoryIds = [];
     formEnMercadolibre = product.enMercadolibre;
     formError = '';
+    formImageFile = null;
+    formImagePreview = null;
     showModal = true;
 
     // Load product details with categories
@@ -164,6 +173,24 @@
     } finally {
       loadingProduct = false;
     }
+  }
+
+  function handleImageChange(e: Event) {
+    const input = e.target as HTMLInputElement;
+    const file = input.files?.[0];
+    if (file) {
+      formImageFile = file;
+      const reader = new FileReader();
+      reader.onload = (e) => {
+        formImagePreview = e.target?.result as string;
+      };
+      reader.readAsDataURL(file);
+    }
+  }
+
+  function clearImage() {
+    formImageFile = null;
+    formImagePreview = null;
   }
 
   function closeModal() {
@@ -213,6 +240,14 @@
           return;
         }
 
+        // Subir imagen si hay una seleccionada
+        if (res.data && formImageFile) {
+          const imageRes = await uploadProductImage(res.data.id, formImageFile);
+          if (imageRes.success && imageRes.data) {
+            res.data.image = imageRes.data.image;
+          }
+        }
+
         // Cambiar a modo vista con el producto creado
         if (res.data) {
           isCreating = false;
@@ -236,6 +271,11 @@
           formError = res.error || 'Error al actualizar';
           saving = false;
           return;
+        }
+
+        // Subir imagen si hay una seleccionada
+        if (formImageFile) {
+          await uploadProductImage(editingProduct.id, formImageFile);
         }
 
         closeModal();
@@ -642,6 +682,54 @@
           bind:selected={formCategoryIds}
           label="Categorias"
         />
+      </div>
+
+      <!-- Image upload -->
+      <div>
+        <span class="block text-sm font-medium text-gray-700 mb-1.5">
+          Imagen del producto
+        </span>
+        <div class="flex items-start gap-4">
+          <!-- Preview -->
+          <div class="w-24 h-24 rounded-ios bg-ios-gray-100 flex items-center justify-center overflow-hidden flex-shrink-0 border-2 border-dashed border-ios-gray-300">
+            {#if formImagePreview}
+              <img src={formImagePreview} alt="Preview" class="w-full h-full object-cover" />
+            {:else if editingProduct?.image}
+              <img
+                src={editingProduct.image.startsWith('data:') ? editingProduct.image : `data:image/png;base64,${editingProduct.image}`}
+                alt="Imagen actual"
+                class="w-full h-full object-cover"
+              />
+            {:else}
+              <Package size={32} class="text-ios-gray-400" />
+            {/if}
+          </div>
+
+          <!-- Upload controls -->
+          <div class="flex-1 space-y-2">
+            <label class="flex items-center gap-2 px-4 py-2 bg-ios-gray-100 hover:bg-ios-gray-200 rounded-ios cursor-pointer transition-colors w-fit">
+              <Upload size={18} class="text-ios-gray-600" />
+              <span class="text-sm text-gray-700">Seleccionar imagen</span>
+              <input
+                type="file"
+                accept="image/*"
+                onchange={handleImageChange}
+                class="hidden"
+              />
+            </label>
+            {#if formImagePreview}
+              <button
+                type="button"
+                onclick={clearImage}
+                class="flex items-center gap-1 text-sm text-ios-red hover:underline"
+              >
+                <X size={14} />
+                Quitar imagen
+              </button>
+            {/if}
+            <p class="text-xs text-ios-gray-500">PNG, JPG hasta 5MB</p>
+          </div>
+        </div>
       </div>
 
       <div>

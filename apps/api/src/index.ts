@@ -10,6 +10,8 @@ import type { Category } from './db/schema'
 type Bindings = {
   TURSO_CONNECTION_URL: string
   TURSO_AUTH_TOKEN: string
+  IMAGES_BUCKET: R2Bucket
+  R2_PUBLIC_URL: string
 }
 
 type Variables = {
@@ -504,6 +506,7 @@ app.delete('/v2/brands/:id', authMiddleware, async (c) => {
 // POST /v2/brands/:id/image
 app.post('/v2/brands/:id/image', authMiddleware, async (c) => {
   const db = c.get('db')
+  const bucket = c.env.IMAGES_BUCKET
   const id = parseInt(c.req.param('id'))
 
   const [existing] = await db.select().from(brands).where(eq(brands.id, id)).limit(1)
@@ -517,9 +520,20 @@ app.post('/v2/brands/:id/image', authMiddleware, async (c) => {
     return c.json({ success: false, error: 'No se proporcionó imagen' }, 400)
   }
 
-  const arrayBuffer = await file.arrayBuffer()
-  const base64 = btoa(String.fromCharCode(...new Uint8Array(arrayBuffer)))
-  const imageUrl = `data:${file.type};base64,${base64}`
+  // Generar key único para R2
+  const ext = file.name.split('.').pop() || 'jpg'
+  const key = `brands/${id}/${Date.now()}.${ext}`
+
+  // Subir a R2
+  await bucket.put(key, file.stream(), {
+    httpMetadata: {
+      contentType: file.type,
+    },
+  })
+
+  // URL pública del bucket (configurar en vars)
+  const publicUrl = c.env.R2_PUBLIC_URL || 'https://pub-ths-images.r2.dev'
+  const imageUrl = `${publicUrl}/${key}`
 
   await db.update(brands).set({ imageUrl }).where(eq(brands.id, id))
   return c.json({ success: true, data: { imageUrl } })
@@ -528,7 +542,19 @@ app.post('/v2/brands/:id/image', authMiddleware, async (c) => {
 // DELETE /v2/brands/:id/image
 app.delete('/v2/brands/:id/image', authMiddleware, async (c) => {
   const db = c.get('db')
+  const bucket = c.env.IMAGES_BUCKET
   const id = parseInt(c.req.param('id'))
+
+  // Obtener la marca para saber el key de la imagen
+  const [existing] = await db.select().from(brands).where(eq(brands.id, id)).limit(1)
+  if (existing?.imageUrl) {
+    // Extraer el key de la URL
+    const url = existing.imageUrl
+    const keyMatch = url.match(/brands\/\d+\/[\w.]+$/)
+    if (keyMatch) {
+      await bucket.delete(keyMatch[0])
+    }
+  }
 
   await db.update(brands).set({ imageUrl: null }).where(eq(brands.id, id))
   return c.json({ success: true, message: 'Imagen eliminada' })
@@ -890,6 +916,39 @@ app.delete('/v2/products/:id/categories/:categoryId', authMiddleware, async (c) 
     ))
 
   return c.json({ success: true })
+})
+
+// POST /v2/products/:id/image
+app.post('/v2/products/:id/image', authMiddleware, async (c) => {
+  const db = c.get('db')
+  const id = parseInt(c.req.param('id'))
+
+  const [existing] = await db.select().from(products).where(eq(products.id, id)).limit(1)
+  if (!existing) {
+    return c.json({ success: false, error: 'Producto no encontrado' }, 404)
+  }
+
+  const formData = await c.req.formData()
+  const file = formData.get('image') as File | null
+  if (!file) {
+    return c.json({ success: false, error: 'No se proporcionó imagen' }, 400)
+  }
+
+  const arrayBuffer = await file.arrayBuffer()
+  const base64 = btoa(String.fromCharCode(...new Uint8Array(arrayBuffer)))
+  const image512 = `data:${file.type};base64,${base64}`
+
+  await db.update(products).set({ image512 }).where(eq(products.id, id))
+  return c.json({ success: true, data: { image: image512 } })
+})
+
+// DELETE /v2/products/:id/image
+app.delete('/v2/products/:id/image', authMiddleware, async (c) => {
+  const db = c.get('db')
+  const id = parseInt(c.req.param('id'))
+
+  await db.update(products).set({ image512: null }).where(eq(products.id, id))
+  return c.json({ success: true, message: 'Imagen eliminada' })
 })
 
 // ==================== MANEJO DE ERRORES ====================
