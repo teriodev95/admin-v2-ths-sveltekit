@@ -5,6 +5,7 @@
     getProduct,
     searchProducts,
     updateProduct,
+    createProduct,
     getBrands,
     getCategories
   } from '$lib/services/api';
@@ -25,7 +26,8 @@
     ChevronLeft,
     ChevronRight,
     Tag,
-    FolderTree
+    FolderTree,
+    Plus
   } from 'lucide-svelte';
 
   let products = $state<Product[]>([]);
@@ -45,7 +47,10 @@
   const pageSize = 20;
 
   // Form state
+  let isCreating = $state(false);
+  let isViewing = $state(false);
   let formName = $state('');
+  let formBarcode = $state('');
   let formSalePrice = $state(0);
   let formStockQuantity = $state(0);
   let formBrandId = $state<number | ''>('');
@@ -115,9 +120,27 @@
     loadProducts();
   }
 
+  function openCreateModal() {
+    isCreating = true;
+    isViewing = false;
+    editingProduct = null;
+    formName = '';
+    formBarcode = '';
+    formSalePrice = 0;
+    formStockQuantity = 0;
+    formBrandId = '';
+    formCategoryIds = [];
+    formEnMercadolibre = 0;
+    formError = '';
+    showModal = true;
+  }
+
   async function openEditModal(product: Product) {
+    isCreating = false;
+    isViewing = false;
     editingProduct = product;
     formName = product.name;
+    formBarcode = product.barcode;
     formSalePrice = product.salePrice;
     formStockQuantity = product.stockQuantity;
     formBrandId = product.brandId || '';
@@ -146,10 +169,12 @@
   function closeModal() {
     showModal = false;
     editingProduct = null;
+    isViewing = false;
+    isCreating = false;
   }
 
-  async function handleSubmit(e: Event) {
-    e.preventDefault();
+  async function handleSubmit(e?: Event) {
+    e?.preventDefault();
     formError = '';
 
     if (!formName.trim()) {
@@ -157,27 +182,65 @@
       return;
     }
 
-    if (!editingProduct) return;
+    if (isCreating && !formBarcode.trim()) {
+      formError = 'El codigo de barras es requerido';
+      return;
+    }
 
     saving = true;
 
     try {
-      const res = await updateProduct(editingProduct.id, {
-        name: formName,
-        salePrice: formSalePrice,
-        stockQuantity: formStockQuantity,
-        brandId: formBrandId || null,
-        categoryIds: formCategoryIds
-      } as Partial<Product> & { categoryIds?: number[] });
+      if (isCreating) {
+        // Crear producto
+        const res = await createProduct({
+          name: formName,
+          barcode: formBarcode,
+          salePrice: formSalePrice,
+          stockQuantity: formStockQuantity,
+          brandId: formBrandId || null,
+          categoryIds: formCategoryIds,
+          brand: null,
+          categories: [],
+          image: null,
+          internalReference: null,
+          storehouseId: 1,
+          enMercadolibre: formEnMercadolibre
+        } as any);
 
-      if (!res.success) {
-        formError = res.error || 'Error al actualizar';
-        saving = false;
-        return;
+        if (!res.success) {
+          formError = res.error || 'Error al crear producto';
+          saving = false;
+          return;
+        }
+
+        // Cambiar a modo vista con el producto creado
+        if (res.data) {
+          isCreating = false;
+          isViewing = true;
+          editingProduct = res.data as Product;
+          await loadProducts();
+        }
+      } else {
+        // Editar producto
+        if (!editingProduct) return;
+
+        const res = await updateProduct(editingProduct.id, {
+          name: formName,
+          salePrice: formSalePrice,
+          stockQuantity: formStockQuantity,
+          brandId: formBrandId || null,
+          categoryIds: formCategoryIds
+        } as Partial<Product> & { categoryIds?: number[] });
+
+        if (!res.success) {
+          formError = res.error || 'Error al actualizar';
+          saving = false;
+          return;
+        }
+
+        closeModal();
+        await loadProducts();
       }
-
-      closeModal();
-      await loadProducts();
     } catch (e) {
       formError = 'Error de conexion';
     } finally {
@@ -218,7 +281,14 @@
   const brandOptions = $derived(brands.map((b) => ({ value: b.id, label: b.name })));
 </script>
 
-<PageHeader title="Productos" description="Gestiona el catalogo de productos" />
+<PageHeader title="Productos" description="Gestiona el catalogo de productos">
+  {#snippet actions()}
+    <Button onclick={openCreateModal}>
+      <Plus size={18} />
+      Nuevo producto
+    </Button>
+  {/snippet}
+</PageHeader>
 
 <!-- Search bar - always visible -->
 <Card class="mb-6">
@@ -424,24 +494,24 @@
   </Card>
 {/if}
 
-<!-- Edit Modal -->
+<!-- Product Modal (Create/Edit/View) -->
 <Modal
   bind:open={showModal}
-  title="Editar producto"
+  title={isCreating ? 'Nuevo producto' : isViewing ? 'Producto creado' : 'Editar producto'}
   size="lg"
   onclose={closeModal}
 >
-  {#if editingProduct}
-    <form onsubmit={handleSubmit} class="space-y-4">
-      {#if formError}
-        <div class="p-3 rounded-ios bg-ios-red/10 text-ios-red text-sm">
-          {formError}
-        </div>
-      {/if}
+  {#if isViewing && editingProduct}
+    <!-- View mode: Product info display -->
+    <div class="space-y-6">
+      <!-- Success message -->
+      <div class="p-4 rounded-ios-lg bg-ios-green/10 border border-ios-green/20">
+        <p class="text-ios-green font-medium text-center">Producto creado exitosamente</p>
+      </div>
 
-      <!-- Product info -->
+      <!-- Product header -->
       <div class="flex items-start gap-4 p-4 bg-ios-gray-50 rounded-ios-lg">
-        <div class="w-16 h-16 rounded-ios bg-ios-gray-200 flex items-center justify-center overflow-hidden flex-shrink-0">
+        <div class="w-20 h-20 rounded-ios bg-ios-gray-200 flex items-center justify-center overflow-hidden flex-shrink-0">
           {#if editingProduct.image}
             <img
               src={editingProduct.image.startsWith('data:') ? editingProduct.image : `data:image/png;base64,${editingProduct.image}`}
@@ -449,14 +519,87 @@
               class="w-full h-full object-cover"
             />
           {:else}
-            <Package size={24} class="text-ios-gray-400" />
+            <Package size={32} class="text-ios-gray-400" />
           {/if}
         </div>
-        <div>
-          <p class="text-sm text-ios-gray-500">Codigo de barras</p>
-          <code class="text-sm font-mono">{editingProduct.barcode}</code>
+        <div class="flex-1 min-w-0">
+          <h3 class="font-semibold text-gray-900 text-lg">{editingProduct.name}</h3>
+          <p class="text-sm text-ios-gray-500 mt-1">ID: {editingProduct.id}</p>
         </div>
       </div>
+
+      <!-- Product details grid -->
+      <div class="grid grid-cols-2 gap-4">
+        <div class="p-3 bg-ios-gray-50 rounded-ios">
+          <p class="text-xs text-ios-gray-500 uppercase font-medium">Codigo de barras</p>
+          <code class="text-sm font-mono mt-1 block">{editingProduct.barcode}</code>
+        </div>
+        <div class="p-3 bg-ios-gray-50 rounded-ios">
+          <p class="text-xs text-ios-gray-500 uppercase font-medium">Precio de venta</p>
+          <p class="text-lg font-semibold text-gray-900 mt-1">${editingProduct.salePrice?.toLocaleString() || '0'}</p>
+        </div>
+        <div class="p-3 bg-ios-gray-50 rounded-ios">
+          <p class="text-xs text-ios-gray-500 uppercase font-medium">Stock</p>
+          <p class="text-lg font-semibold text-gray-900 mt-1">{editingProduct.stockQuantity || 0} unidades</p>
+        </div>
+        <div class="p-3 bg-ios-gray-50 rounded-ios">
+          <p class="text-xs text-ios-gray-500 uppercase font-medium">Marca</p>
+          <p class="text-sm text-gray-900 mt-1">
+            {#if editingProduct.brandId}
+              {@const brand = getBrandById(editingProduct.brandId)}
+              {brand?.name || 'Sin marca'}
+            {:else}
+              Sin marca
+            {/if}
+          </p>
+        </div>
+      </div>
+
+      <!-- Mercado Libre status -->
+      <div class="flex items-center justify-between p-3 bg-ios-gray-50 rounded-ios">
+        <span class="text-sm text-gray-700">Publicado en Mercado Libre</span>
+        <Badge variant={editingProduct.enMercadolibre ? 'success' : 'default'} size="sm">
+          {editingProduct.enMercadolibre ? 'Si' : 'No'}
+        </Badge>
+      </div>
+    </div>
+  {:else}
+    <!-- Create/Edit mode: Form -->
+    <form onsubmit={handleSubmit} class="space-y-4">
+      {#if formError}
+        <div class="p-3 rounded-ios bg-ios-red/10 text-ios-red text-sm">
+          {formError}
+        </div>
+      {/if}
+
+      {#if isCreating}
+        <!-- Barcode input for new products -->
+        <Input
+          label="Codigo de barras"
+          placeholder="Escanea o ingresa el codigo"
+          bind:value={formBarcode}
+          required
+        />
+      {:else if editingProduct}
+        <!-- Product info for editing -->
+        <div class="flex items-start gap-4 p-4 bg-ios-gray-50 rounded-ios-lg">
+          <div class="w-16 h-16 rounded-ios bg-ios-gray-200 flex items-center justify-center overflow-hidden flex-shrink-0">
+            {#if editingProduct.image}
+              <img
+                src={editingProduct.image.startsWith('data:') ? editingProduct.image : `data:image/png;base64,${editingProduct.image}`}
+                alt={editingProduct.name}
+                class="w-full h-full object-cover"
+              />
+            {:else}
+              <Package size={24} class="text-ios-gray-400" />
+            {/if}
+          </div>
+          <div>
+            <p class="text-sm text-ios-gray-500">Codigo de barras</p>
+            <code class="text-sm font-mono">{editingProduct.barcode}</code>
+          </div>
+        </div>
+      {/if}
 
       <Input
         label="Nombre"
@@ -523,12 +666,18 @@
 
   {#snippet footer()}
     <div class="flex items-center justify-end gap-3">
-      <Button variant="secondary" onclick={closeModal}>
-        Cancelar
-      </Button>
-      <Button loading={saving} onclick={handleSubmit}>
-        Guardar cambios
-      </Button>
+      {#if isViewing}
+        <Button onclick={closeModal}>
+          Cerrar
+        </Button>
+      {:else}
+        <Button variant="secondary" onclick={closeModal}>
+          Cancelar
+        </Button>
+        <Button loading={saving} onclick={() => handleSubmit()}>
+          {isCreating ? 'Crear producto' : 'Guardar cambios'}
+        </Button>
+      {/if}
     </div>
   {/snippet}
 </Modal>

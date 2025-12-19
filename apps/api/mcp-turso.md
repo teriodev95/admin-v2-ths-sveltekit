@@ -33,14 +33,3 @@ wrangler secret put TURSO_AUTH_TOKEN
 # Desplegar
 npm run deploy
 ```
-
-## API Key
-
-```
-592a1ebcab6abb05c78efa5173f1696524177f3e2ef369fa5e41f6f7a398c5c0
-```
-url base
-libsql://ths-db-clvrt.aws-us-west-2.turso.io
-
-token
-eyJhbGciOiJFZERTQSIsInR5cCI6IkpXVCJ9.eyJhIjoicnciLCJpYXQiOjE3NjYwOTU2NjAsImlkIjoiNmMzZDY0ODMtZjQxYy00YWNhLTk3NTMtNzdmZTA2YTE3MTUwIiwicmlkIjoiNzBjNzBhNmQtYTgzMC00MTdkLWIwNzgtNGI2NmQwNTUwMDQ1In0.ACO5Tt1seAiVErxygIYn-gy5ajqhbPviHrZhPXnzEnXWbR2R1cFI_Jq80twz0gpEBpkGq7GpCyqPjmG-5BDiBQ
