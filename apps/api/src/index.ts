@@ -229,6 +229,15 @@ app.post('/products/search-advanced', async (c) => {
   if (body.brandId) conditions.push(eq(products.brandId, body.brandId))
   if (body.enMercadolibre !== undefined) conditions.push(eq(products.enMercadolibre, body.enMercadolibre))
 
+  // Contar total de productos (sin limit/offset)
+  let countQuery = db.select({ count: sql<number>`COUNT(*)` }).from(products)
+  if (conditions.length > 0) {
+    countQuery = countQuery.where(and(...conditions)) as typeof countQuery
+  }
+  const [countResult] = await countQuery
+  let total = countResult?.count || 0
+
+  // Obtener productos paginados
   let query = db.select().from(products)
   if (conditions.length > 0) {
     query = query.where(and(...conditions)) as typeof query
@@ -246,6 +255,8 @@ app.post('/products/search-advanced', async (c) => {
 
     const ids = productIdsInCategory.map(p => p.productId)
     filteredResult = result.filter(p => ids.includes(p.id))
+    // Ajustar total para filtro por categoría
+    total = filteredResult.length
   }
 
   return c.json({
@@ -264,7 +275,7 @@ app.post('/products/search-advanced', async (c) => {
       storehouseId: p.storehouseId,
       enMercadolibre: p.enMercadolibre,
     })),
-    total: filteredResult.length,
+    total,
   })
 })
 
@@ -934,9 +945,18 @@ app.post('/v2/products/:id/image', authMiddleware, async (c) => {
     return c.json({ success: false, error: 'No se proporcionó imagen' }, 400)
   }
 
+  // Convertir a base64 de manera segura para archivos grandes
   const arrayBuffer = await file.arrayBuffer()
-  const base64 = btoa(String.fromCharCode(...new Uint8Array(arrayBuffer)))
-  const image512 = `data:${file.type};base64,${base64}`
+  const uint8Array = new Uint8Array(arrayBuffer)
+  let binary = ''
+  const chunkSize = 8192
+  for (let i = 0; i < uint8Array.length; i += chunkSize) {
+    const chunk = uint8Array.subarray(i, i + chunkSize)
+    binary += String.fromCharCode.apply(null, chunk as unknown as number[])
+  }
+  const base64 = btoa(binary)
+  const contentType = file.type || 'image/jpeg'
+  const image512 = `data:${contentType};base64,${base64}`
 
   await db.update(products).set({ image512 }).where(eq(products.id, id))
   return c.json({ success: true, data: { image: image512 } })

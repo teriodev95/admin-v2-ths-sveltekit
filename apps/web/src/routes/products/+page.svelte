@@ -30,7 +30,9 @@
     FolderTree,
     Plus,
     Upload,
-    X
+    X,
+    Camera,
+    ImageIcon
   } from 'lucide-svelte';
 
   let products = $state<Product[]>([]);
@@ -47,7 +49,7 @@
   let searchQuery = $state('');
   let currentPage = $state(1);
   let totalProducts = $state(0);
-  const pageSize = 20;
+  const pageSize = 50;
 
   // Form state
   let isCreating = $state(false);
@@ -181,11 +183,17 @@
     if (file) {
       formImageFile = file;
       const reader = new FileReader();
-      reader.onload = (e) => {
-        formImagePreview = e.target?.result as string;
+      reader.onload = (evt) => {
+        formImagePreview = evt.target?.result as string;
+      };
+      reader.onerror = () => {
+        console.error('Error leyendo archivo');
+        formError = 'Error al cargar la imagen';
       };
       reader.readAsDataURL(file);
     }
+    // Resetear el input para permitir seleccionar el mismo archivo de nuevo
+    input.value = '';
   }
 
   function clearImage() {
@@ -706,17 +714,34 @@
           </div>
 
           <!-- Upload controls -->
-          <div class="flex-1 space-y-2">
-            <label class="flex items-center gap-2 px-4 py-2 bg-ios-gray-100 hover:bg-ios-gray-200 rounded-ios cursor-pointer transition-colors w-fit">
-              <Upload size={18} class="text-ios-gray-600" />
-              <span class="text-sm text-gray-700">Seleccionar imagen</span>
-              <input
-                type="file"
-                accept="image/*"
-                onchange={handleImageChange}
-                class="hidden"
-              />
-            </label>
+          <div class="flex-1 space-y-3">
+            <div class="flex flex-wrap gap-2">
+              <!-- Tomar foto -->
+              <label class="flex items-center gap-2 px-4 py-2 bg-ios-blue text-white rounded-ios cursor-pointer transition-colors hover:bg-ios-blue/90">
+                <Camera size={18} />
+                <span class="text-sm font-medium">Tomar foto</span>
+                <input
+                  type="file"
+                  accept="image/*"
+                  capture="environment"
+                  onchange={handleImageChange}
+                  class="hidden"
+                />
+              </label>
+
+              <!-- Seleccionar de galería -->
+              <label class="flex items-center gap-2 px-4 py-2 bg-ios-gray-100 hover:bg-ios-gray-200 rounded-ios cursor-pointer transition-colors">
+                <ImageIcon size={18} class="text-ios-gray-600" />
+                <span class="text-sm text-gray-700">Galería</span>
+                <input
+                  type="file"
+                  accept="image/*"
+                  onchange={handleImageChange}
+                  class="hidden"
+                />
+              </label>
+            </div>
+
             {#if formImagePreview}
               <button
                 type="button"
