@@ -23,6 +23,12 @@ npm run build:web    # Build only web
 npm run lint         # Lint all workspaces
 ```
 
+### Type Checking (from apps/web/)
+```bash
+npm run check        # Run svelte-check with TypeScript
+npm run check:watch  # Watch mode for development
+```
+
 ### API Database (from apps/api/)
 ```bash
 npm run db:generate  # Generate Drizzle migrations
@@ -59,6 +65,7 @@ Key patterns:
 - All responses follow `{ success: boolean, data?: T, error?: string }` format
 - Protected routes use `authMiddleware`
 - Categories support hierarchical tree structure with `parentId`
+- Two API versions coexist: v1 routes (`/products`, `/productsTNT`) and v2 routes (`/v2/brands`, `/v2/categories`, `/v2/products`)
 
 ### Web (apps/web)
 - **Framework**: SvelteKit 5 with Svelte 5 runes (`$state`, `$derived`, `$effect`)
@@ -79,12 +86,18 @@ Key patterns:
 
 ### Database Schema
 - **products**: Core entity with barcode, prices, stock, brandId reference
-- **brands/categories**: Support images (base64), soft delete via `isActive`
+- **brands**: Name, slug, imageUrl (stored in R2), soft delete via `isActive`
+- **categories**: Hierarchical with parentId, images stored as base64, soft delete via `isActive`
 - **productCategories**: Many-to-many pivot table
 - **users**: Auth with hashed passwords, role-based access
+
+### Image Storage
+- **Brand images**: Uploaded to Cloudflare R2 bucket (`ths-images`), URLs stored in DB
+- **Category/Product images**: Stored as base64 data URIs directly in DB
 
 ## Environment
 
 - API requires `TURSO_AUTH_TOKEN` as Cloudflare secret
-- `TURSO_CONNECTION_URL` configured in wrangler.toml
+- `TURSO_CONNECTION_URL` and `R2_PUBLIC_URL` configured in wrangler.toml
+- R2 bucket `ths-images` bound as `IMAGES_BUCKET` for brand image storage
 - Web has hardcoded production API URL in `api.ts`

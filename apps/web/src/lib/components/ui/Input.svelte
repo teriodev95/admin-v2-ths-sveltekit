@@ -1,6 +1,6 @@
 <script lang="ts">
   interface Props {
-    type?: 'text' | 'email' | 'password' | 'number' | 'search';
+    type?: "text" | "email" | "password" | "number" | "search";
     value?: string | number;
     placeholder?: string;
     label?: string;
@@ -10,19 +10,21 @@
     class?: string;
     oninput?: (e: Event) => void;
     onchange?: (e: Event) => void;
+    onfocus?: (e: FocusEvent) => void;
   }
 
   let {
-    type = 'text',
-    value = $bindable(''),
-    placeholder = '',
-    label = '',
-    error = '',
+    type = "text",
+    value = $bindable(""),
+    placeholder = "",
+    label = "",
+    error = "",
     disabled = false,
     required = false,
-    class: className = '',
+    class: className = "",
     oninput,
-    onchange
+    onchange,
+    onfocus,
   }: Props = $props();
 </script>
 
@@ -41,10 +43,13 @@
     {required}
     {oninput}
     {onchange}
+    {onfocus}
     class="w-full px-4 py-3 bg-white border rounded-ios text-sm
            placeholder:text-ios-gray-500 focus:outline-none focus:ring-2 focus:ring-ios-blue/20 focus:border-ios-blue
            transition-all duration-200 disabled:bg-ios-gray-100 disabled:cursor-not-allowed
-           {error ? 'border-ios-red focus:ring-ios-red/20 focus:border-ios-red' : 'border-ios-gray-200'}"
+           {error
+      ? 'border-ios-red focus:ring-ios-red/20 focus:border-ios-red'
+      : 'border-ios-gray-200'}"
   />
   {#if error}
     <p class="mt-1.5 text-xs text-ios-red">{error}</p>
