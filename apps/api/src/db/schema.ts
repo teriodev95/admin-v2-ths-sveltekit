@@ -20,6 +20,7 @@ export const brands = sqliteTable('brands', {
   slug: text('slug').notNull().unique(),
   imageUrl: text('image_url'),
   isActive: integer('is_active').default(1),
+  isVisibleWeb: integer('is_visible_web').default(1),
   createdAt: text('created_at').notNull().default(sql`DATETIME(CURRENT_TIMESTAMP, '-6 hours')`),
   updatedAt: text('updated_at').notNull().default(sql`DATETIME(CURRENT_TIMESTAMP, '-6 hours')`),
 })
@@ -47,9 +48,11 @@ export const products = sqliteTable('products', {
   internalReference: text('internal_reference'),
   storehouseId: integer('storehouse_id'),
   image512: text('image_512'),
+  images: text('images'), // JSON array de URLs de imágenes adicionales (max 4)
   brand: text('brand'),
   brandId: integer('brand_id').references(() => brands.id),
   enMercadolibre: integer('en_mercadolibre').default(0),
+  visibleEcommerce: integer('visible_ecommerce').default(1),
   createdBy: text('created_by'),
   createdAt: text('created_at').notNull().default(sql`DATETIME(CURRENT_TIMESTAMP, '-6 hours')`),
   updatedAt: text('updated_at').notNull().default(sql`DATETIME(CURRENT_TIMESTAMP, '-6 hours')`),

@@ -27,6 +27,8 @@ export interface Product {
   internalReference: string | null;
   storehouseId: number;
   enMercadolibre: number;
+  visibleEcommerce: number;
+  images?: string[];
 }
 
 export interface Brand {
@@ -35,6 +37,7 @@ export interface Brand {
   slug: string;
   imageUrl: string | null;
   isActive: number;
+  isVisibleWeb: number;
 }
 
 export interface Category {

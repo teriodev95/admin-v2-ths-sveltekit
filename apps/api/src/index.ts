@@ -117,6 +117,7 @@ app.get('/products', async (c) => {
       internalReference: p.internalReference,
       storehouseId: p.storehouseId,
       enMercadolibre: p.enMercadolibre,
+      visibleEcommerce: p.visibleEcommerce,
     })),
   })
 })
@@ -154,6 +155,7 @@ app.get('/products/search', async (c) => {
         internalReference: product.internalReference,
         storehouseId: product.storehouseId,
         enMercadolibre: product.enMercadolibre,
+        visibleEcommerce: product.visibleEcommerce,
       },
     })
   }
@@ -178,6 +180,7 @@ app.get('/products/search', async (c) => {
         internalReference: p.internalReference,
         storehouseId: p.storehouseId,
         enMercadolibre: p.enMercadolibre,
+        visibleEcommerce: p.visibleEcommerce,
       })),
     })
   }
@@ -274,6 +277,7 @@ app.post('/products/search-advanced', async (c) => {
       internalReference: p.internalReference,
       storehouseId: p.storehouseId,
       enMercadolibre: p.enMercadolibre,
+      visibleEcommerce: p.visibleEcommerce,
     })),
     total,
   })
@@ -342,6 +346,7 @@ app.post('/productsTNT', authMiddleware, async (c) => {
       internalReference: newProduct.internalReference,
       storehouseId: newProduct.storehouseId,
       enMercadolibre: newProduct.enMercadolibre,
+      visibleEcommerce: newProduct.visibleEcommerce,
     },
   }, 201)
 })
@@ -356,6 +361,7 @@ app.put('/editProductTNT/:id', authMiddleware, async (c) => {
     stockQuantity?: number
     image?: string
     enMercadolibre?: number
+    visibleEcommerce?: number
   }>()
 
   const [existing] = await db.select().from(products).where(eq(products.id, id)).limit(1)
@@ -369,6 +375,7 @@ app.put('/editProductTNT/:id', authMiddleware, async (c) => {
   if (body.stockQuantity !== undefined) updates.stockQuantity = body.stockQuantity
   if (body.image !== undefined) updates.image512 = body.image
   if (body.enMercadolibre !== undefined) updates.enMercadolibre = body.enMercadolibre
+  if (body.visibleEcommerce !== undefined) updates.visibleEcommerce = body.visibleEcommerce
 
   await db.update(products).set(updates).where(eq(products.id, id))
 
@@ -388,6 +395,7 @@ app.put('/editProductTNT/:id', authMiddleware, async (c) => {
       internalReference: updated.internalReference,
       storehouseId: updated.storehouseId,
       enMercadolibre: updated.enMercadolibre,
+      visibleEcommerce: updated.visibleEcommerce,
     },
   })
 })
@@ -396,15 +404,19 @@ app.put('/editProductTNT/:id', authMiddleware, async (c) => {
 app.put('/products/:id', authMiddleware, async (c) => {
   const db = c.get('db')
   const id = parseInt(c.req.param('id'))
-  const body = await c.req.json<{ enMercadolibre?: number }>()
+  const body = await c.req.json<{ enMercadolibre?: number; visibleEcommerce?: number }>()
 
   const [existing] = await db.select().from(products).where(eq(products.id, id)).limit(1)
   if (!existing) {
     return c.json({ success: false, error: 'Producto no encontrado' }, 404)
   }
 
-  if (body.enMercadolibre !== undefined) {
-    await db.update(products).set({ enMercadolibre: body.enMercadolibre }).where(eq(products.id, id))
+  const updates: Record<string, any> = {}
+  if (body.enMercadolibre !== undefined) updates.enMercadolibre = body.enMercadolibre
+  if (body.visibleEcommerce !== undefined) updates.visibleEcommerce = body.visibleEcommerce
+
+  if (Object.keys(updates).length > 0) {
+    await db.update(products).set(updates).where(eq(products.id, id))
   }
 
   return c.json({ success: true })
@@ -432,6 +444,7 @@ app.get('/v2/brands', async (c) => {
       slug: b.slug,
       imageUrl: b.imageUrl,
       isActive: b.isActive,
+      isVisibleWeb: b.isVisibleWeb,
     })),
   })
 })
@@ -448,7 +461,7 @@ app.get('/v2/brands/:id', async (c) => {
 
   return c.json({
     success: true,
-    data: { id: brand.id, name: brand.name, slug: brand.slug, imageUrl: brand.imageUrl, isActive: brand.isActive },
+    data: { id: brand.id, name: brand.name, slug: brand.slug, imageUrl: brand.imageUrl, isActive: brand.isActive, isVisibleWeb: brand.isVisibleWeb },
   })
 })
 
@@ -472,7 +485,7 @@ app.post('/v2/brands', authMiddleware, async (c) => {
 
   return c.json({
     success: true,
-    data: { id: newBrand.id, name: newBrand.name, slug: newBrand.slug, imageUrl: newBrand.imageUrl, isActive: newBrand.isActive },
+    data: { id: newBrand.id, name: newBrand.name, slug: newBrand.slug, imageUrl: newBrand.imageUrl, isActive: newBrand.isActive, isVisibleWeb: newBrand.isVisibleWeb },
   }, 201)
 })
 
@@ -480,7 +493,7 @@ app.post('/v2/brands', authMiddleware, async (c) => {
 app.put('/v2/brands/:id', authMiddleware, async (c) => {
   const db = c.get('db')
   const id = parseInt(c.req.param('id'))
-  const body = await c.req.json<{ name?: string; slug?: string }>()
+  const body = await c.req.json<{ name?: string; slug?: string; isVisibleWeb?: number }>()
 
   const [existing] = await db.select().from(brands).where(eq(brands.id, id)).limit(1)
   if (!existing) {
@@ -490,13 +503,14 @@ app.put('/v2/brands/:id', authMiddleware, async (c) => {
   const updates: Record<string, any> = {}
   if (body.name) updates.name = body.name
   if (body.slug) updates.slug = body.slug
+  if (body.isVisibleWeb !== undefined) updates.isVisibleWeb = body.isVisibleWeb
 
   await db.update(brands).set(updates).where(eq(brands.id, id))
   const [updated] = await db.select().from(brands).where(eq(brands.id, id)).limit(1)
 
   return c.json({
     success: true,
-    data: { id: updated.id, name: updated.name, slug: updated.slug, imageUrl: updated.imageUrl, isActive: updated.isActive },
+    data: { id: updated.id, name: updated.name, slug: updated.slug, imageUrl: updated.imageUrl, isActive: updated.isActive, isVisibleWeb: updated.isVisibleWeb },
   })
 })
 
@@ -777,6 +791,8 @@ app.get('/v2/products/:id', async (c) => {
       internalReference: product.internalReference,
       storehouseId: product.storehouseId,
       enMercadolibre: product.enMercadolibre,
+      visibleEcommerce: product.visibleEcommerce,
+      images: product.images ? JSON.parse(product.images) : [],
     },
   })
 })
@@ -792,6 +808,7 @@ app.put('/v2/products/:id', authMiddleware, async (c) => {
     brandId?: number | null
     categoryIds?: number[]
     image?: string
+    visibleEcommerce?: number
   }>()
 
   const [existing] = await db.select().from(products).where(eq(products.id, id)).limit(1)
@@ -805,6 +822,7 @@ app.put('/v2/products/:id', authMiddleware, async (c) => {
   if (body.stockQuantity !== undefined) updates.stockQuantity = body.stockQuantity
   if (body.brandId !== undefined) updates.brandId = body.brandId
   if (body.image !== undefined) updates.image512 = body.image
+  if (body.visibleEcommerce !== undefined) updates.visibleEcommerce = body.visibleEcommerce
 
   await db.update(products).set(updates).where(eq(products.id, id))
 
@@ -852,6 +870,7 @@ app.get('/v2/products/by-category/:categoryId', async (c) => {
       stockQuantity: p.stockQuantity,
       image: p.image512,
       brandId: p.brandId,
+      visibleEcommerce: p.visibleEcommerce,
     })),
     total: productIds.length,
   })
@@ -883,6 +902,7 @@ app.get('/v2/products/by-brand/:brandId', async (c) => {
       stockQuantity: p.stockQuantity,
       image: p.image512,
       brandId: p.brandId,
+      visibleEcommerce: p.visibleEcommerce,
     })),
     total: total[0]?.count || 0,
   })
@@ -932,6 +952,8 @@ app.delete('/v2/products/:id/categories/:categoryId', authMiddleware, async (c) 
 // POST /v2/products/:id/image
 app.post('/v2/products/:id/image', authMiddleware, async (c) => {
   const db = c.get('db')
+  const bucket = c.env.IMAGES_BUCKET
+  const publicUrl = c.env.R2_PUBLIC_URL || 'https://pub-180ece43688c448aa5a33b73e8a33c75.r2.dev'
   const id = parseInt(c.req.param('id'))
 
   const [existing] = await db.select().from(products).where(eq(products.id, id)).limit(1)
@@ -945,30 +967,332 @@ app.post('/v2/products/:id/image', authMiddleware, async (c) => {
     return c.json({ success: false, error: 'No se proporcionó imagen' }, 400)
   }
 
-  // Convertir a base64 de manera segura para archivos grandes
-  const arrayBuffer = await file.arrayBuffer()
-  const uint8Array = new Uint8Array(arrayBuffer)
-  let binary = ''
-  const chunkSize = 8192
-  for (let i = 0; i < uint8Array.length; i += chunkSize) {
-    const chunk = uint8Array.subarray(i, i + chunkSize)
-    binary += String.fromCharCode.apply(null, chunk as unknown as number[])
-  }
-  const base64 = btoa(binary)
-  const contentType = file.type || 'image/jpeg'
-  const image512 = `data:${contentType};base64,${base64}`
+  // Generar key único para R2
+  const ext = file.name.split('.').pop() || 'jpg'
+  const key = `productos/${id}/${Date.now()}.${ext}`
 
-  await db.update(products).set({ image512 }).where(eq(products.id, id))
-  return c.json({ success: true, data: { image: image512 } })
+  // Subir a R2
+  await bucket.put(key, file.stream(), {
+    httpMetadata: {
+      contentType: file.type,
+    },
+  })
+
+  // URL pública
+  const imageUrl = `${publicUrl}/${key}`
+
+  // Si había una imagen anterior en R2, eliminarla
+  if (existing.image512 && existing.image512.startsWith(publicUrl)) {
+    const oldKey = existing.image512.replace(`${publicUrl}/`, '')
+    try {
+      await bucket.delete(oldKey)
+    } catch {
+      // Ignorar errores al eliminar imagen anterior
+    }
+  }
+
+  await db.update(products).set({ image512: imageUrl }).where(eq(products.id, id))
+  return c.json({ success: true, data: { image: imageUrl } })
 })
 
 // DELETE /v2/products/:id/image
 app.delete('/v2/products/:id/image', authMiddleware, async (c) => {
   const db = c.get('db')
+  const bucket = c.env.IMAGES_BUCKET
+  const publicUrl = c.env.R2_PUBLIC_URL || 'https://pub-180ece43688c448aa5a33b73e8a33c75.r2.dev'
   const id = parseInt(c.req.param('id'))
+
+  // Obtener el producto para saber si tiene imagen en R2
+  const [existing] = await db.select().from(products).where(eq(products.id, id)).limit(1)
+  if (existing?.image512 && existing.image512.startsWith(publicUrl)) {
+    const key = existing.image512.replace(`${publicUrl}/`, '')
+    try {
+      await bucket.delete(key)
+    } catch {
+      // Ignorar errores al eliminar
+    }
+  }
 
   await db.update(products).set({ image512: null }).where(eq(products.id, id))
   return c.json({ success: true, message: 'Imagen eliminada' })
+})
+
+// ==================== MÚLTIPLES IMÁGENES ====================
+
+// GET /v2/products/:id/images - Obtener array de imágenes
+app.get('/v2/products/:id/images', async (c) => {
+  const db = c.get('db')
+  const id = parseInt(c.req.param('id'))
+
+  const [product] = await db.select({ images: products.images }).from(products).where(eq(products.id, id)).limit(1)
+  if (!product) {
+    return c.json({ success: false, error: 'Producto no encontrado' }, 404)
+  }
+
+  const images: string[] = product.images ? JSON.parse(product.images) : []
+  return c.json({ success: true, data: { images } })
+})
+
+// POST /v2/products/:id/images - Agregar imagen al array (máximo 4)
+app.post('/v2/products/:id/images', authMiddleware, async (c) => {
+  const db = c.get('db')
+  const bucket = c.env.IMAGES_BUCKET
+  const publicUrl = c.env.R2_PUBLIC_URL || 'https://pub-180ece43688c448aa5a33b73e8a33c75.r2.dev'
+  const id = parseInt(c.req.param('id'))
+
+  const [existing] = await db.select({ images: products.images }).from(products).where(eq(products.id, id)).limit(1)
+  if (!existing) {
+    return c.json({ success: false, error: 'Producto no encontrado' }, 404)
+  }
+
+  // Parsear imágenes existentes
+  const currentImages: string[] = existing.images ? JSON.parse(existing.images) : []
+
+  if (currentImages.length >= 4) {
+    return c.json({ success: false, error: 'Máximo 4 imágenes permitidas' }, 400)
+  }
+
+  const formData = await c.req.formData()
+  const file = formData.get('image') as File | null
+  if (!file) {
+    return c.json({ success: false, error: 'No se proporcionó imagen' }, 400)
+  }
+
+  // Generar key único para R2
+  const ext = file.name.split('.').pop() || 'jpg'
+  const key = `productos/${id}/gallery/${Date.now()}.${ext}`
+
+  // Subir a R2
+  await bucket.put(key, file.stream(), {
+    httpMetadata: {
+      contentType: file.type,
+    },
+  })
+
+  // Agregar URL al array
+  const imageUrl = `${publicUrl}/${key}`
+  currentImages.push(imageUrl)
+
+  await db.update(products).set({ images: JSON.stringify(currentImages) }).where(eq(products.id, id))
+
+  return c.json({
+    success: true,
+    data: {
+      images: currentImages,
+      added: imageUrl,
+    },
+  })
+})
+
+// DELETE /v2/products/:id/images/:index - Eliminar imagen específica del array
+app.delete('/v2/products/:id/images/:index', authMiddleware, async (c) => {
+  const db = c.get('db')
+  const bucket = c.env.IMAGES_BUCKET
+  const publicUrl = c.env.R2_PUBLIC_URL || 'https://pub-180ece43688c448aa5a33b73e8a33c75.r2.dev'
+  const id = parseInt(c.req.param('id'))
+  const index = parseInt(c.req.param('index'))
+
+  const [existing] = await db.select({ images: products.images }).from(products).where(eq(products.id, id)).limit(1)
+  if (!existing) {
+    return c.json({ success: false, error: 'Producto no encontrado' }, 404)
+  }
+
+  const currentImages: string[] = existing.images ? JSON.parse(existing.images) : []
+
+  if (index < 0 || index >= currentImages.length) {
+    return c.json({ success: false, error: 'Índice de imagen inválido' }, 400)
+  }
+
+  // Obtener URL a eliminar
+  const imageUrl = currentImages[index]
+
+  // Eliminar de R2 si es una URL del bucket
+  if (imageUrl.startsWith(publicUrl)) {
+    const key = imageUrl.replace(`${publicUrl}/`, '')
+    try {
+      await bucket.delete(key)
+    } catch {
+      // Ignorar errores al eliminar
+    }
+  }
+
+  // Remover del array
+  currentImages.splice(index, 1)
+
+  await db.update(products).set({ images: JSON.stringify(currentImages) }).where(eq(products.id, id))
+
+  return c.json({
+    success: true,
+    data: { images: currentImages },
+    message: 'Imagen eliminada',
+  })
+})
+
+// DELETE /v2/products/:id/images - Eliminar todas las imágenes del array
+app.delete('/v2/products/:id/images', authMiddleware, async (c) => {
+  const db = c.get('db')
+  const bucket = c.env.IMAGES_BUCKET
+  const publicUrl = c.env.R2_PUBLIC_URL || 'https://pub-180ece43688c448aa5a33b73e8a33c75.r2.dev'
+  const id = parseInt(c.req.param('id'))
+
+  const [existing] = await db.select({ images: products.images }).from(products).where(eq(products.id, id)).limit(1)
+  if (!existing) {
+    return c.json({ success: false, error: 'Producto no encontrado' }, 404)
+  }
+
+  const currentImages: string[] = existing.images ? JSON.parse(existing.images) : []
+
+  // Eliminar todas las imágenes de R2
+  for (const imageUrl of currentImages) {
+    if (imageUrl.startsWith(publicUrl)) {
+      const key = imageUrl.replace(`${publicUrl}/`, '')
+      try {
+        await bucket.delete(key)
+      } catch {
+        // Ignorar errores al eliminar
+      }
+    }
+  }
+
+  await db.update(products).set({ images: null }).where(eq(products.id, id))
+
+  return c.json({ success: true, message: 'Todas las imágenes eliminadas' })
+})
+
+// ==================== MIGRACIÓN DE IMÁGENES ====================
+
+// POST /migrate/product-images - Migrar imágenes de productos de base64 a R2 (por lotes)
+app.post('/migrate/product-images', authMiddleware, async (c) => {
+  const db = c.get('db')
+  const bucket = c.env.IMAGES_BUCKET
+  const publicUrl = c.env.R2_PUBLIC_URL || 'https://pub-180ece43688c448aa5a33b73e8a33c75.r2.dev'
+
+  // Obtener parámetro de lote (cuántos procesar por request)
+  const batchSize = parseInt(c.req.query('batch') || '5')
+
+  // Obtener solo IDs de productos con base64 (sin cargar imágenes)
+  const base64Ids = await db.select({ id: products.id })
+    .from(products)
+    .where(sql`${products.image512} LIKE 'data:%'`)
+    .limit(batchSize)
+
+  if (base64Ids.length === 0) {
+    return c.json({
+      success: true,
+      message: 'No hay más imágenes en base64 para migrar',
+      migrated: 0,
+      remaining: 0,
+    })
+  }
+
+  let migrated = 0
+  let errors: { id: number; error: string }[] = []
+
+  // Procesar cada producto individualmente
+  for (const { id } of base64Ids) {
+    try {
+      // Cargar solo este producto
+      const [product] = await db.select({
+        id: products.id,
+        image512: products.image512,
+      }).from(products).where(eq(products.id, id)).limit(1)
+
+      if (!product || !product.image512) continue
+
+      const base64Data = product.image512
+      // Extraer el tipo de contenido y los datos base64
+      const matches = base64Data.match(/^data:([^;]+);base64,(.+)$/)
+
+      if (!matches) {
+        errors.push({ id: product.id, error: 'Formato base64 inválido' })
+        continue
+      }
+
+      const contentType = matches[1]
+      const base64Content = matches[2]
+
+      // Determinar extensión según content type
+      let ext = 'jpg'
+      if (contentType.includes('png')) ext = 'png'
+      else if (contentType.includes('gif')) ext = 'gif'
+      else if (contentType.includes('webp')) ext = 'webp'
+
+      // Convertir base64 a ArrayBuffer
+      const binaryString = atob(base64Content)
+      const bytes = new Uint8Array(binaryString.length)
+      for (let i = 0; i < binaryString.length; i++) {
+        bytes[i] = binaryString.charCodeAt(i)
+      }
+
+      // Generar key para R2
+      const key = `productos/${product.id}/${Date.now()}.${ext}`
+
+      // Subir a R2
+      await bucket.put(key, bytes, {
+        httpMetadata: {
+          contentType,
+        },
+      })
+
+      // Actualizar producto con nueva URL
+      const imageUrl = `${publicUrl}/${key}`
+      await db.update(products).set({ image512: imageUrl }).where(eq(products.id, product.id))
+
+      migrated++
+    } catch (err) {
+      errors.push({ id, error: err instanceof Error ? err.message : 'Error desconocido' })
+    }
+  }
+
+  // Contar cuántos quedan
+  const [remainingCount] = await db.select({ count: sql<number>`COUNT(*)` })
+    .from(products)
+    .where(sql`${products.image512} LIKE 'data:%'`)
+
+  return c.json({
+    success: true,
+    message: `Migración de lote completada`,
+    migrated,
+    processed: base64Ids.length,
+    remaining: remainingCount?.count || 0,
+    errors: errors.length > 0 ? errors : undefined,
+  })
+})
+
+// GET /migrate/product-images/status - Ver estado de migración
+app.get('/migrate/product-images/status', authMiddleware, async (c) => {
+  const db = c.get('db')
+
+  // Usar SQL raw para contar sin cargar todas las imágenes en memoria
+  const [totalCount] = await db.select({ count: sql<number>`COUNT(*)` }).from(products)
+
+  const [base64Count] = await db.select({ count: sql<number>`COUNT(*)` })
+    .from(products)
+    .where(sql`${products.image512} LIKE 'data:%'`)
+
+  const [r2Count] = await db.select({ count: sql<number>`COUNT(*)` })
+    .from(products)
+    .where(sql`${products.image512} LIKE 'http%'`)
+
+  const [nullCount] = await db.select({ count: sql<number>`COUNT(*)` })
+    .from(products)
+    .where(sql`${products.image512} IS NULL OR ${products.image512} = ''`)
+
+  // Solo obtener IDs de productos con base64 (sin cargar la imagen)
+  const base64Ids = await db.select({ id: products.id })
+    .from(products)
+    .where(sql`${products.image512} LIKE 'data:%'`)
+
+  return c.json({
+    success: true,
+    data: {
+      total: totalCount?.count || 0,
+      withBase64: base64Count?.count || 0,
+      withR2Url: r2Count?.count || 0,
+      withoutImage: nullCount?.count || 0,
+      productIdsWithBase64: base64Ids.map(p => p.id),
+    },
+  })
 })
 
 // ==================== MANEJO DE ERRORES ====================

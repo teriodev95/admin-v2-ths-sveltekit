@@ -16,7 +16,7 @@
   import Badge from '$lib/components/ui/Badge.svelte';
   import Spinner from '$lib/components/ui/Spinner.svelte';
   import EmptyState from '$lib/components/ui/EmptyState.svelte';
-  import { Plus, Pencil, Trash2, Tag, Upload, X } from 'lucide-svelte';
+  import { Plus, Pencil, Trash2, Tag, Upload, Globe } from 'lucide-svelte';
 
   let brands = $state<Brand[]>([]);
   let loading = $state(true);
@@ -147,6 +147,19 @@
       .replace(/[^a-z0-9]+/g, '-')
       .replace(/^-|-$/g, '');
   }
+
+  async function toggleVisibleWeb(brand: Brand) {
+    try {
+      const res = await updateBrand(brand.id, {
+        isVisibleWeb: brand.isVisibleWeb ? 0 : 1
+      });
+      if (res.success) {
+        await loadBrands();
+      }
+    } catch (e) {
+      console.error('Error actualizando visibilidad:', e);
+    }
+  }
 </script>
 
 <PageHeader title="Marcas" description="Gestiona las marcas de productos">
@@ -215,9 +228,11 @@
               <h3 class="font-medium text-gray-900">{brand.name}</h3>
               <p class="text-xs text-ios-gray-500">{brand.slug}</p>
             </div>
-            <Badge variant={brand.isActive ? 'success' : 'danger'} size="sm">
-              {brand.isActive ? 'Activa' : 'Inactiva'}
-            </Badge>
+            <div class="flex items-center gap-1">
+              <Badge variant={brand.isActive ? 'success' : 'danger'} size="sm">
+                {brand.isActive ? 'Activa' : 'Inactiva'}
+              </Badge>
+            </div>
           </div>
 
           <div class="flex items-center gap-2 mt-3">
@@ -229,6 +244,14 @@
             >
               <Pencil size={14} />
               Editar
+            </Button>
+            <Button
+              variant="ghost"
+              size="sm"
+              onclick={() => toggleVisibleWeb(brand)}
+              title={brand.isVisibleWeb ? 'Visible en web - Click para ocultar' : 'Oculta en web - Click para mostrar'}
+            >
+              <Globe size={14} class={brand.isVisibleWeb ? 'text-ios-blue' : 'text-ios-gray-400'} />
             </Button>
             {#if brand.isActive}
               <Button

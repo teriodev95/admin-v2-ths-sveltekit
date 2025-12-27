@@ -105,6 +105,31 @@ export async function uploadProductImage(id: number, file: File): Promise<ApiRes
   return response.json();
 }
 
+// Product Gallery Images
+export async function getProductGalleryImages(id: number): Promise<ApiResponse<{ images: string[] }>> {
+  return fetchApi<{ images: string[] }>(`/v2/products/${id}/images`);
+}
+
+export async function addProductGalleryImage(id: number, file: File): Promise<ApiResponse<{ images: string[] }>> {
+  const token = getToken();
+  const formData = new FormData();
+  formData.append('image', file);
+
+  const response = await fetch(`${API_URL}/v2/products/${id}/images`, {
+    method: 'POST',
+    headers: token ? { Authorization: `Bearer ${token}` } : {},
+    body: formData
+  });
+
+  return response.json();
+}
+
+export async function deleteProductGalleryImage(id: number, index: number): Promise<ApiResponse<{ images: string[] }>> {
+  return fetchApi<{ images: string[] }>(`/v2/products/${id}/images/${index}`, {
+    method: 'DELETE'
+  });
+}
+
 // Brands
 export async function getBrands(includeInactive = false): Promise<ApiResponse<Brand[]>> {
   const query = includeInactive ? '?includeInactive=true' : '';

@@ -7,6 +7,8 @@
     updateProduct,
     createProduct,
     uploadProductImage,
+    addProductGalleryImage,
+    deleteProductGalleryImage,
     getBrands,
     getCategories,
   } from "$lib/services/api";
@@ -34,6 +36,9 @@
     X,
     Camera,
     ImageIcon,
+    Globe,
+    Trash2,
+    Images,
   } from "lucide-svelte";
 
   let products = $state<Product[]>([]);
@@ -65,6 +70,12 @@
   let formError = $state("");
   let formImageFile = $state<File | null>(null);
   let formImagePreview = $state<string | null>(null);
+
+  // Gallery state
+  let galleryImages = $state<string[]>([]);
+  let loadingGallery = $state(false);
+  let uploadingGallery = $state(false);
+  let deletingGalleryIndex = $state<number | null>(null);
 
   onMount(async () => {
     await Promise.all([loadProducts(), loadFilters()]);
@@ -145,6 +156,7 @@
     formError = "";
     formImageFile = null;
     formImagePreview = null;
+    galleryImages = [];
     showModal = true;
   }
 
@@ -162,6 +174,7 @@
     formError = "";
     formImageFile = null;
     formImagePreview = null;
+    galleryImages = product.images || [];
     showModal = true;
 
     // Load product details with categories
@@ -174,6 +187,10 @@
           formCategoryIds = cats.map((c: any) =>
             typeof c === "number" ? c : c.id
           );
+        }
+        // Update gallery images from full product data
+        if (res.data.images) {
+          galleryImages = res.data.images;
         }
       }
     } catch (e) {
@@ -205,6 +222,58 @@
   function clearImage() {
     formImageFile = null;
     formImagePreview = null;
+  }
+
+  // Gallery image handlers
+  async function handleGalleryImageAdd(e: Event) {
+    const input = e.target as HTMLInputElement;
+    const file = input.files?.[0];
+    if (!file || !editingProduct) return;
+
+    if (galleryImages.length >= 4) {
+      formError = "Máximo 4 imágenes permitidas en la galería";
+      input.value = "";
+      return;
+    }
+
+    uploadingGallery = true;
+    formError = "";
+
+    try {
+      const res = await addProductGalleryImage(editingProduct.id, file);
+      if (res.success && res.data) {
+        galleryImages = res.data.images;
+      } else {
+        formError = res.error || "Error al subir imagen";
+      }
+    } catch (e) {
+      formError = "Error de conexión al subir imagen";
+      console.error("Error uploading gallery image:", e);
+    } finally {
+      uploadingGallery = false;
+      input.value = "";
+    }
+  }
+
+  async function handleGalleryImageDelete(index: number) {
+    if (!editingProduct) return;
+
+    deletingGalleryIndex = index;
+    formError = "";
+
+    try {
+      const res = await deleteProductGalleryImage(editingProduct.id, index);
+      if (res.success && res.data) {
+        galleryImages = res.data.images;
+      } else {
+        formError = res.error || "Error al eliminar imagen";
+      }
+    } catch (e) {
+      formError = "Error de conexión al eliminar imagen";
+      console.error("Error deleting gallery image:", e);
+    } finally {
+      deletingGalleryIndex = null;
+    }
   }
 
   function handleFocus(e: FocusEvent) {
@@ -315,6 +384,18 @@
       await loadProducts();
     } catch (e) {
       console.error("Error actualizando:", e);
+    }
+  }
+
+  async function toggleVisibleEcommerce(product: Product) {
+    const newValue = product.visibleEcommerce ? 0 : 1;
+    try {
+      await updateProduct(product.id, {
+        visibleEcommerce: newValue,
+      } as Partial<Product>);
+      await loadProducts();
+    } catch (e) {
+      console.error("Error actualizando visibilidad:", e);
     }
   }
 
@@ -447,6 +528,11 @@
               ML
             </th>
             <th
+              class="px-4 py-3 text-center text-xs font-medium text-ios-gray-500 uppercase"
+            >
+              Ecommerce
+            </th>
+            <th
               class="px-4 py-3 text-right text-xs font-medium text-ios-gray-500 uppercase"
             >
               Acciones
@@ -465,9 +551,7 @@
                   >
                     {#if product.image}
                       <img
-                        src={product.image.startsWith("data:")
-                          ? product.image
-                          : `data:image/png;base64,${product.image}`}
+                        src={product.image}
                         alt={product.name}
                         class="w-full h-full object-cover"
                       />
@@ -559,6 +643,16 @@
                   ></span>
                 </button>
               </td>
+              <td class="px-4 py-3 text-center">
+                <button
+                  onclick={() => toggleVisibleEcommerce(product)}
+                  aria-label="Toggle visibilidad ecommerce para {product.name}"
+                  title={product.visibleEcommerce ? 'Visible en ecommerce' : 'Oculto en ecommerce'}
+                  class="p-1.5 rounded-ios transition-colors hover:bg-ios-gray-100"
+                >
+                  <Globe size={18} class={product.visibleEcommerce ? 'text-ios-blue' : 'text-ios-gray-400'} />
+                </button>
+              </td>
               <td class="px-4 py-3 text-right">
                 <Button
                   variant="ghost"
@@ -641,9 +735,7 @@
         >
           {#if editingProduct.image}
             <img
-              src={editingProduct.image.startsWith("data:")
-                ? editingProduct.image
-                : `data:image/png;base64,${editingProduct.image}`}
+              src={editingProduct.image}
               alt={editingProduct.name}
               class="w-full h-full object-cover"
             />
@@ -708,6 +800,84 @@
           {editingProduct.enMercadolibre ? "Si" : "No"}
         </Badge>
       </div>
+
+      <!-- Gallery images section in view mode -->
+      <div>
+        <div class="flex items-center gap-2 mb-3">
+          <Images size={18} class="text-ios-gray-600" />
+          <span class="text-sm font-medium text-gray-700">
+            Galería de imágenes
+          </span>
+          <span class="text-xs text-ios-gray-500">
+            ({galleryImages.length}/4)
+          </span>
+        </div>
+
+        {#if formError}
+          <div class="p-2 rounded-ios bg-ios-red/10 text-ios-red text-xs mb-3">
+            {formError}
+          </div>
+        {/if}
+
+        <!-- Gallery grid -->
+        <div class="grid grid-cols-4 gap-3">
+          {#each galleryImages as imageUrl, index}
+            <div class="relative group">
+              <div class="aspect-square rounded-ios overflow-hidden bg-ios-gray-100 border border-ios-gray-200">
+                <img
+                  src={imageUrl}
+                  alt="Imagen {index + 1}"
+                  class="w-full h-full object-cover"
+                />
+              </div>
+              <!-- Delete button -->
+              <button
+                type="button"
+                onclick={() => handleGalleryImageDelete(index)}
+                disabled={deletingGalleryIndex === index}
+                class="absolute -top-2 -right-2 w-6 h-6 bg-ios-red text-white rounded-full
+                       flex items-center justify-center shadow-md
+                       opacity-0 group-hover:opacity-100 transition-opacity
+                       hover:bg-ios-red/90 disabled:opacity-50"
+              >
+                {#if deletingGalleryIndex === index}
+                  <Spinner size="sm" />
+                {:else}
+                  <Trash2 size={12} />
+                {/if}
+              </button>
+            </div>
+          {/each}
+
+          <!-- Add new image slot -->
+          {#if galleryImages.length < 4}
+            <label
+              class="aspect-square rounded-ios border-2 border-dashed border-ios-gray-300
+                     flex flex-col items-center justify-center gap-1 cursor-pointer
+                     hover:border-ios-blue hover:bg-ios-blue/5 transition-colors
+                     {uploadingGallery ? 'opacity-50 pointer-events-none' : ''}"
+            >
+              {#if uploadingGallery}
+                <Spinner size="sm" />
+              {:else}
+                <Plus size={20} class="text-ios-gray-400" />
+                <span class="text-xs text-ios-gray-500">Agregar</span>
+              {/if}
+              <input
+                type="file"
+                accept="image/*"
+                onchange={handleGalleryImageAdd}
+                disabled={uploadingGallery}
+                class="hidden"
+              />
+            </label>
+          {/if}
+        </div>
+
+        <p class="text-xs text-ios-gray-500 mt-2">
+          Puedes agregar hasta 4 imágenes adicionales
+        </p>
+      </div>
     </div>
   {:else}
     <!-- Create/Edit mode: Form -->
@@ -734,9 +904,7 @@
           >
             {#if editingProduct.image}
               <img
-                src={editingProduct.image.startsWith("data:")
-                  ? editingProduct.image
-                  : `data:image/png;base64,${editingProduct.image}`}
+                src={editingProduct.image}
                 alt={editingProduct.name}
                 class="w-full h-full object-cover"
               />
@@ -816,9 +984,7 @@
               />
             {:else if editingProduct?.image}
               <img
-                src={editingProduct.image.startsWith("data:")
-                  ? editingProduct.image
-                  : `data:image/png;base64,${editingProduct.image}`}
+                src={editingProduct.image}
                 alt="Imagen actual"
                 class="w-full h-full object-cover"
               />
@@ -874,6 +1040,80 @@
           </div>
         </div>
       </div>
+
+      <!-- Gallery images - Show when editing or after creating product -->
+      {#if editingProduct}
+        <div>
+          <div class="flex items-center gap-2 mb-3">
+            <Images size={18} class="text-ios-gray-600" />
+            <span class="text-sm font-medium text-gray-700">
+              Galería de imágenes
+            </span>
+            <span class="text-xs text-ios-gray-500">
+              ({galleryImages.length}/4)
+            </span>
+          </div>
+
+          <!-- Gallery grid -->
+          <div class="grid grid-cols-4 gap-3">
+            {#each galleryImages as imageUrl, index}
+              <div class="relative group">
+                <div class="aspect-square rounded-ios overflow-hidden bg-ios-gray-100 border border-ios-gray-200">
+                  <img
+                    src={imageUrl}
+                    alt="Imagen {index + 1}"
+                    class="w-full h-full object-cover"
+                  />
+                </div>
+                <!-- Delete button -->
+                <button
+                  type="button"
+                  onclick={() => handleGalleryImageDelete(index)}
+                  disabled={deletingGalleryIndex === index}
+                  class="absolute -top-2 -right-2 w-6 h-6 bg-ios-red text-white rounded-full
+                         flex items-center justify-center shadow-md
+                         opacity-0 group-hover:opacity-100 transition-opacity
+                         hover:bg-ios-red/90 disabled:opacity-50"
+                >
+                  {#if deletingGalleryIndex === index}
+                    <Spinner size="sm" />
+                  {:else}
+                    <Trash2 size={12} />
+                  {/if}
+                </button>
+              </div>
+            {/each}
+
+            <!-- Add new image slot -->
+            {#if galleryImages.length < 4}
+              <label
+                class="aspect-square rounded-ios border-2 border-dashed border-ios-gray-300
+                       flex flex-col items-center justify-center gap-1 cursor-pointer
+                       hover:border-ios-blue hover:bg-ios-blue/5 transition-colors
+                       {uploadingGallery ? 'opacity-50 pointer-events-none' : ''}"
+              >
+                {#if uploadingGallery}
+                  <Spinner size="sm" />
+                {:else}
+                  <Plus size={20} class="text-ios-gray-400" />
+                  <span class="text-xs text-ios-gray-500">Agregar</span>
+                {/if}
+                <input
+                  type="file"
+                  accept="image/*"
+                  onchange={handleGalleryImageAdd}
+                  disabled={uploadingGallery}
+                  class="hidden"
+                />
+              </label>
+            {/if}
+          </div>
+
+          <p class="text-xs text-ios-gray-500 mt-2">
+            Puedes agregar hasta 4 imágenes adicionales
+          </p>
+        </div>
+      {/if}
 
       <div>
         <span class="block text-sm font-medium text-gray-700 mb-1.5">
